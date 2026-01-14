@@ -1,0 +1,4 @@
+{
+    "name": "User Key Manager",
+    "route": "/admin/user_keys"
+}
