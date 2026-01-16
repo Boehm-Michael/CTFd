@@ -1,4 +1,4 @@
-import os, io, requests, time
+import os, io, requests, datetime, timedelta
 from flask import Blueprint, render_template, request, jsonify, send_file, flash, redirect, url_for
 from sqlalchemy import event
 from CTFd.models import db, Users
@@ -14,6 +14,20 @@ class UserPrivateKey(db.Model):
     def __init__(self, user_id, private_key):
         self.user_id = user_id
         self.private_key = private_key
+
+class UserContainer(db.model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"))
+    container_id = db.Column(db.String(128)) # Docker Hash
+    container_type = db.Column(db.String(32)) # Either jumpbox or challenge
+    expires_at = db.Column(db.DateTime)
+    ip_address = db.Column(db.String(64))
+
+    def time_left(self):
+        if not self.expires_at:
+            return 0
+        diff = self.expires_at - datetime.utcnow()
+        return max(0, int(diff.total_seconds()))
 
 def load(app):
     app.db.create_all()
@@ -128,6 +142,40 @@ def load(app):
             requests.post(machine_url, json=payload, timeout=2)
         except requests.exceptions.RequestException as e:
             app.logger.error(f"Failed to notify machine: {str(e)}")
+
+
+    @user_keys_bp.route("/container/spawn", methods=["POST"])
+    @authed_only
+    def spawn_container():
+        user = get_current_user()
+        ctype = request.form.get("type", "jumpbox")
+        
+        # Check if user already has a container of this type
+        existing = UserContainer.query.filter_by(user_id=user.id, container_type=ctype).first()
+        if existing:
+            return jsonify({"success": False, "message": "Container already running."})
+
+        # Notify Manager Script
+        manager_url = "http://172.24.0.1:5000/spawn"
+        payload = {"user_id": user.id, "type": ctype}
+        
+        try:
+            r = requests.post(manager_url, json=payload, timeout=5)
+            data = r.json()
+            
+            # Save container info to DB
+            new_container = UserContainer(
+                user_id=user.id,
+                container_id=data['id'],
+                container_type=ctype,
+                ip_address=data['ip'],
+                expires_at=datetime.utcnow() + timedelta(hours=2) # 2-hour timer
+            )
+            db.session.add(new_container)
+            db.session.commit()
+            return jsonify({"success": True})
+        except Exception as e:
+            return jsonify({"success": False, "message": str(e)})
 
     app.db.create_all()
     
