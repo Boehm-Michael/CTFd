@@ -6,6 +6,7 @@ from CTFd.utils.decorators import admins_only, authed_only
 from CTFd.utils.user import get_current_user
 from CTFd.utils.plugins import override_template
 
+
 class UserPrivateKey(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"))
@@ -15,11 +16,11 @@ class UserPrivateKey(db.Model):
         self.user_id = user_id
         self.private_key = private_key
 
-class UserContainer(db.model):
+class UserContainer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"))
     container_id = db.Column(db.String(128)) # Docker Hash
-    container_type = db.Column(db.String(32)) # Either jumpbox or challenge
+    container_type = db.Column(db.String(32)) # Either jumpbox or challenge name
     expires_at = db.Column(db.DateTime)
     ip_address = db.Column(db.String(64))
 
@@ -178,6 +179,7 @@ def load(app):
             return jsonify({"success": False, "message": str(e)})
 
     app.db.create_all()
+
     
 
     app.register_blueprint(user_keys_bp)

@@ -92,6 +92,59 @@
                     </div>
                 </div>
 
+                <div class="row pt-5">
+                  <div class="col-md-12">
+                      <h3>Lab Control Panel</h3>
+                      <div class="card">
+                          <div class="card-body">
+                              <div id="jumpbox-status">
+                                  <p>No active jumpbox. Start one to begin the challenge.</p>
+                                  <button class="btn btn-success" onclick="spawn('jumpbox')">Spawn Jumpbox</button>
+                              </div>
+                              
+                              <hr>
+                              
+                              <div id="timer-container" style="display:none;">
+                                  <h5>Time Remaining: <span id="timer" class="text-danger">00:00:00</span></h5>
+                                  <p>IP Address: <code id="container-ip"></code></p>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <script>
+              function spawn(type) {
+                  fetch('/container/spawn', {
+                      method: 'POST',
+                      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                      body: `type=${type}&nonce={{ Session.nonce }}`
+                  }).then(res => res.json()).then(data => {
+                      if(data.success) location.reload();
+                      else alert(data.message);
+                  });
+              }
+
+              // Simple Countdown Logic
+              function startTimer(duration) {
+                  let timer = duration, hours, minutes, seconds;
+                  setInterval(function () {
+                      hours = parseInt(timer / 3600, 10);
+                      minutes = parseInt((timer % 3600) / 60, 10);
+                      seconds = parseInt(timer % 60, 10);
+
+                      document.getElementById('timer').textContent = 
+                          (hours < 10 ? "0" + hours : hours) + ":" + 
+                          (minutes < 10 ? "0" + minutes : minutes) + ":" + 
+                          (seconds < 10 ? "0" + seconds : seconds);
+
+                      if (--timer < 0) location.reload(); // Refresh when expired
+                  }, 1000);
+              }
+
+              // Initial state check would go here to trigger startTimer() if DB says active
+              </script>
+
                 <hr>
 
                 {{ render_extra_fields(form.extra) }}
